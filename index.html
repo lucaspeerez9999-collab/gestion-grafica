@@ -1,0 +1,168 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestión Gráfica</title>
+<style>
+:root{--bg:#f3f5f9;--card:#fff;--ink:#172033;--muted:#778196;--blue:#315cf5;--line:#e7eaf1}
+*{box-sizing:border-box}
+body{margin:0;font:15px Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#172033;color:white;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+header h1{font-size:22px;margin:0}header p{margin:6px 0 0;color:#c7d0e2;font-size:13px}
+.logo{background:#315cf5;border-radius:12px;padding:11px;margin-right:10px;font-weight:bold}
+.brand{display:flex;align-items:center}
+main{max-width:1200px;margin:auto;padding:22px}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+button,.btn{border:0;border-radius:9px;padding:11px 14px;cursor:pointer;font-weight:600;background:#e9edff;color:#2449d7}
+nav button{background:white;color:#586176}
+nav button.active,button.primary{background:var(--blue);color:white}
+button.danger{background:#fff0f0;color:#c52b3b}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.stat-label{color:var(--muted);font-size:13px}.stat-number{font-size:25px;font-weight:bold;margin-top:10px;overflow-wrap:anywhere}
+h2{font-size:20px;margin:0 0 16px}h3{margin:0 0 12px}
+.toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+input,select,textarea{width:100%;padding:12px;border:1px solid #dce1eb;border-radius:8px;font:inherit;background:white;color:var(--ink)}
+label{display:block;font-size:13px;color:#5f687a;margin-bottom:6px}
+.field{margin-bottom:13px}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.full{grid-column:1/-1}.hidden{display:none!important}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}th{color:var(--muted);font-weight:600}
+.tablewrap{overflow-x:auto}.empty{color:var(--muted);padding:25px;text-align:center}
+.actions{display:flex;gap:6px;flex-wrap:wrap}.actions button{padding:7px 9px;font-size:12px}
+.total{font-size:23px;font-weight:bold;margin:14px 0}
+.note{font-size:12px;color:var(--muted);line-height:1.5}
+.badge{display:inline-block;border-radius:20px;padding:5px 8px;background:#edf0f7;font-size:12px}
+@media(max-width:720px){header{padding:17px}main{padding:14px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}.stat-number{font-size:21px}}
+@media print{header,nav,.no-print{display:none!important}body{background:white}main{padding:0}.card{border:0}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo">GG</span><div><h1>Gestión Gráfica</h1><p>Cartelería · Gráfica · Instalaciones</p></div></div>
+  <button onclick="window.print()">Imprimir</button>
+</header>
+<main>
+<nav class="no-print" id="nav">
+<button class="active" data-page="inicio">Inicio</button>
+<button data-page="clientes">Clientes</button>
+<button data-page="presupuestos">Presupuestos</button>
+<button data-page="trabajos">Órdenes de trabajo</button>
+<button data-page="gastos">Gastos y caja</button>
+<button data-page="datos">Respaldo</button>
+</nav>
+<section id="inicio" class="page">
+<h2>Resumen del negocio</h2>
+<div class="stats">
+<div class="card"><div class="stat-label">Clientes registrados</div><div class="stat-number" id="sClientes">0</div></div>
+<div class="card"><div class="stat-label">Presupuestos</div><div class="stat-number" id="sPresupuestos">0</div></div>
+<div class="card"><div class="stat-label">Trabajos pendientes</div><div class="stat-number" id="sTrabajos">0</div></div>
+<div class="card"><div class="stat-label">Saldo registrado</div><div class="stat-number" id="sSaldo">$0</div></div>
+</div>
+<div class="card"><h3>Bienvenido a tu gestión</h3><p>Registrá clientes, calculá presupuestos y llevá un control inicial de trabajos y gastos.</p><p class="note">Esta primera versión guarda los datos en este navegador. Todavía no sincroniza entre dispositivos ni tiene usuarios y contraseñas.</p></div>
+<div class="card"><h3>Últimos presupuestos</h3><div id="ultimos"></div></div>
+</section>
+<section id="clientes" class="page hidden">
+<div class="toolbar"><h2>Clientes</h2><button class="primary" onclick="formularioCliente()">+ Nuevo cliente</button></div>
+<div id="formCliente" class="card hidden">
+<h3>Datos del cliente</h3><form id="clienteForm"><div class="formgrid">
+<div class="field"><label>Nombre o empresa *</label><input name="nombre" required></div>
+<div class="field"><label>Teléfono</label><input name="telefono"></div>
+<div class="field"><label>Email</label><input name="email" type="email"></div>
+<div class="field"><label>CUIT</label><input name="cuit"></div>
+<div class="field full"><label>Dirección / notas</label><input name="notas"></div>
+</div><div class="actions"><button class="primary">Guardar cliente</button><button type="button" onclick="cerrar('formCliente')">Cancelar</button></div></form></div>
+<div class="card"><input id="buscarCliente" placeholder="Buscar cliente..." oninput="renderClientes()"><div class="tablewrap"><table><thead><tr><th>Nombre</th><th>Contacto</th><th>CUIT</th><th></th></tr></thead><tbody id="listaClientes"></tbody></table></div></div>
+</section>
+<section id="presupuestos" class="page hidden">
+<div class="toolbar"><h2>Presupuestos</h2><button class="primary" onclick="formularioPresupuesto()">+ Nuevo presupuesto</button></div>
+<div id="formPresupuesto" class="card hidden">
+<h3>Crear presupuesto</h3><form id="presupuestoForm">
+<div class="formgrid">
+<div class="field"><label>Cliente *</label><select name="cliente" id="pCliente" required></select></div>
+<div class="field"><label>Fecha</label><input name="fecha" type="date" required></div>
+<div class="field"><label>Descripción del trabajo *</label><input name="descripcion" required placeholder="Ej. Cartel corpóreo retroiluminado"></div>
+<div class="field"><label>Medidas</label><input name="medidas" placeholder="Ej. 3,40 x 0,88 m"></div>
+<div class="field"><label>Materiales ($)</label><input name="materiales" type="number" min="0" step="0.01" value="0"></div>
+<div class="field"><label>Fabricación / mano de obra ($)</label><input name="mano" type="number" min="0" step="0.01" value="0"></div>
+<div class="field"><label>Instalación ($)</label><input name="instalacion" type="number" min="0" step="0.01" value="0"></div>
+<div class="field"><label>Otros costos ($)</label><input name="otros" type="number" min="0" step="0.01" value="0"></div>
+<div class="field"><label>Ganancia (%)</label><input name="ganancia" type="number" min="0" step="0.1" value="30"></div>
+<div class="field"><label>Descuento ($)</label><input name="descuento" type="number" min="0" step="0.01" value="0"></div>
+<div class="field"><label>Seña recibida ($)</label><input name="sena" type="number" min="0" step="0.01" value="0"></div>
+<div class="field"><label>Estado</label><select name="estado"><option>Pendiente</option><option>Enviado</option><option>Aceptado</option><option>Rechazado</option></select></div>
+<div class="field full"><label>Observaciones / condiciones</label><textarea name="observaciones" rows="2"></textarea></div>
+</div>
+<div class="card"><div class="stat-label">Total estimado (costos + porcentaje de ganancia - descuento)</div><div class="total" id="calculo">$0</div><div class="note">El cálculo es una ayuda de gestión; revisá impuestos y condiciones antes de entregar el presupuesto.</div></div>
+<div class="actions"><button class="primary">Guardar presupuesto</button><button type="button" onclick="cerrar('formPresupuesto')">Cancelar</button></div>
+</form></div>
+<div class="card"><div class="tablewrap"><table><thead><tr><th>N.º / fecha</th><th>Cliente y trabajo</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody id="listaPresupuestos"></tbody></table></div></div>
+</section>
+<section id="trabajos" class="page hidden">
+<div class="toolbar"><h2>Órdenes de trabajo</h2><button class="primary" onclick="formularioTrabajo()">+ Nuevo trabajo</button></div>
+<div id="formTrabajo" class="card hidden"><h3>Registrar trabajo</h3><form id="trabajoForm"><div class="formgrid">
+<div class="field"><label>Trabajo *</label><input name="nombre" required></div>
+<div class="field"><label>Cliente</label><select name="cliente" id="tCliente"></select></div>
+<div class="field"><label>Fecha de entrega</label><input name="fecha" type="date"></div>
+<div class="field"><label>Estado</label><select name="estado"><option>Pendiente</option><option>En producción</option><option>Listo para instalar</option><option>Finalizado</option></select></div>
+<div class="field full"><label>Notas</label><textarea name="notas"></textarea></div>
+</div><div class="actions"><button class="primary">Guardar trabajo</button><button type="button" onclick="cerrar('formTrabajo')">Cancelar</button></div></form></div>
+<div class="card"><div class="tablewrap"><table><thead><tr><th>Trabajo</th><th>Cliente</th><th>Entrega</th><th>Estado</th><th></th></tr></thead><tbody id="listaTrabajos"></tbody></table></div></div>
+</section>
+<section id="gastos" class="page hidden">
+<div class="toolbar"><h2>Gastos y caja</h2><button class="primary" onclick="formularioGasto()">+ Registrar movimiento</button></div>
+<div id="formGasto" class="card hidden"><h3>Movimiento de caja</h3><form id="gastoForm"><div class="formgrid">
+<div class="field"><label>Tipo</label><select name="tipo"><option>Gasto</option><option>Ingreso</option></select></div>
+<div class="field"><label>Fecha</label><input name="fecha" type="date" required></div>
+<div class="field"><label>Concepto *</label><input name="concepto" required></div>
+<div class="field"><label>Importe ($) *</label><input name="importe" type="number" min="0.01" step="0.01" required></div>
+</div><div class="actions"><button class="primary">Guardar movimiento</button><button type="button" onclick="cerrar('formGasto')">Cancelar</button></div></form></div>
+<div class="card"><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Importe</th><th></th></tr></thead><tbody id="listaGastos"></tbody></table></div></div>
+</section>
+<section id="datos" class="page hidden">
+<h2>Respaldo de datos</h2>
+<div class="card"><h3>Guardar una copia</h3><p>Descargá una copia de los registros para conservarlos o trasladarlos.</p><button class="primary" onclick="exportar()">Descargar respaldo JSON</button></div>
+<div class="card"><h3>Restaurar una copia</h3><p class="note">La importación reemplaza los registros actuales. Exportá una copia antes de continuar.</p><input id="archivo" type="file" accept=".json,application/json"><button onclick="importar()">Importar respaldo</button></div>
+<div class="card"><h3>Importante</h3><p>Los datos de esta versión están guardados en el navegador de este dispositivo. Borrar sus datos puede eliminarlos. El respaldo no equivale a una base de datos online.</p></div>
+</section>
+</main>
+<script>
+const key='gestionGrafica_v1';
+let db={clientes:[],presupuestos:[],trabajos:[],gastos:[]};
+try{const saved=localStorage.getItem(key);if(saved)db={...db,...JSON.parse(saved)}}catch(e){}
+const $=id=>document.getElementById(id);
+const money=n=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2}).format(Number(n)||0);
+const hoy=()=>new Date().toLocaleDateString('en-CA');
+const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function save(){localStorage.setItem(key,JSON.stringify(db));render()}
+function cerrar(id){$(id).classList.add('hidden')}
+function abrir(id){$(id).classList.remove('hidden')}
+$('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-page]');if(!b)return;document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));$(b.dataset.page).classList.remove('hidden');document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));render()});
+function formularioCliente(){ $('clienteForm').reset();abrir('formCliente')}
+function formularioPresupuesto(){if(!db.clientes.length){alert('Primero registrá un cliente.');return} $('presupuestoForm').reset();$('presupuestoForm').elements.fecha.value=hoy();actualizarSelects();abrir('formPresupuesto');calcular()}
+function formularioTrabajo(){$('trabajoForm').reset();$('trabajoForm').elements.fecha.value=hoy();actualizarSelects();abrir('formTrabajo')}
+function formularioGasto(){$('gastoForm').reset();$('gastoForm').elements.fecha.value=hoy();abrir('formGasto')}
+function actualizarSelects(){for(const name of ['pCliente','tCliente']){$(name).innerHTML='<option value="">Sin asignar</option>'+db.clientes.map(c=>`<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('')}}
+$('clienteForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.clientes.push({id:id(),nombre:f.get('nombre'),telefono:f.get('telefono'),email:f.get('email'),cuit:f.get('cuit'),notas:f.get('notas')});e.target.reset();cerrar('formCliente');save()};
+function calcular(){const f=$('presupuestoForm');if(!f)return;const n=k=>Number(f.elements[k].value)||0;const subtotal=n('materiales')+n('mano')+n('instalacion')+n('otros');$('calculo').textContent=money(Math.max(0,subtotal*(1+n('ganancia')/100)-n('descuento')))}
+$('presupuestoForm').addEventListener('input',calcular);
+$('presupuestoForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target),n=k=>Number(f.get(k))||0;const base=n('materiales')+n('mano')+n('instalacion')+n('otros');const total=Math.max(0,base*(1+n('ganancia')/100)-n('descuento'));db.presupuestos.push({id:id(),numero:String(Date.now()).slice(-6),fecha:f.get('fecha'),cliente:f.get('cliente'),descripcion:f.get('descripcion'),medidas:f.get('medidas'),materiales:n('materiales'),mano:n('mano'),instalacion:n('instalacion'),otros:n('otros'),ganancia:n('ganancia'),descuento:n('descuento'),sena:n('sena'),total,estado:f.get('estado'),observaciones:f.get('observaciones')});e.target.reset();cerrar('formPresupuesto');save()};
+$('trabajoForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.trabajos.push({id:id(),nombre:f.get('nombre'),cliente:f.get('cliente'),fecha:f.get('fecha'),estado:f.get('estado'),notas:f.get('notas')});e.target.reset();cerrar('formTrabajo');save()};
+$('gastoForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.gastos.push({id:id(),tipo:f.get('tipo'),fecha:f.get('fecha'),concepto:f.get('concepto'),importe:Number(f.get('importe'))});e.target.reset();cerrar('formGasto');save()};
+function borrar(tipo,ident){if(confirm('¿Eliminar este registro?')){db[tipo]=db[tipo].filter(x=>x.id!==ident);save()}}
+function clienteNombre(ident){return db.clientes.find(c=>c.id===ident)?.nombre||'Sin asignar'}
+function renderClientes(){const q=($('buscarCliente')?.value||'').toLowerCase();$('listaClientes').innerHTML=db.clientes.filter(c=>(c.nombre+' '+c.telefono+' '+c.cuit).toLowerCase().includes(q)).map(c=>`<tr><td><b>${esc(c.nombre)}</b><br><span class="note">${esc(c.email)}</span></td><td>${esc(c.telefono)}</td><td>${esc(c.cuit)}</td><td><button class="danger" onclick="borrar('clientes','${c.id}')">Eliminar</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Todavía no hay clientes.</td></tr>'}
+function renderPresupuestos(){$('listaPresupuestos').innerHTML=[...db.presupuestos].reverse().map(p=>`<tr><td>#${esc(p.numero)}<br>${esc(p.fecha)}</td><td><b>${esc(clienteNombre(p.cliente))}</b><br>${esc(p.descripcion)}<br><span class="note">${esc(p.medidas)}</span></td><td><b>${money(p.total)}</b><br><span class="note">Seña: ${money(p.sena)}</span></td><td><span class="badge">${esc(p.estado)}</span></td><td><div class="actions"><button onclick="imprimirPresupuesto('${p.id}')">Imprimir</button><button class="danger" onclick="borrar('presupuestos','${p.id}')">Eliminar</button></div></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Todavía no hay presupuestos.</td></tr>'}
+function imprimirPresupuesto(ident){const p=db.presupuestos.find(x=>x.id===ident);if(!p)return;const c=db.clientes.find(x=>x.id===p.cliente)||{};const w=window.open('','_blank');if(!w){alert('Permití las ventanas emergentes para imprimir.');return}w.document.write(`<!DOCTYPE html><html lang="es"><meta charset="utf-8"><title>Presupuesto ${esc(p.numero)}</title><style>body{font:16px Arial;margin:45px;color:#222}h1{color:#315cf5}table{width:100%;border-collapse:collapse;margin-top:25px}td,th{border-bottom:1px solid #ddd;padding:12px;text-align:left}.total{text-align:right;font-size:24px;margin-top:25px}</style><h1>GESTIÓN GRÁFICA</h1><p>Cartelería · Gráfica · Instalaciones</p><hr><h2>PRESUPUESTO #${esc(p.numero)}</h2><p>Fecha: ${esc(p.fecha)}</p><h3>Cliente: ${esc(c.nombre||'')}</h3><p>Teléfono: ${esc(c.telefono||'')} · CUIT: ${esc(c.cuit||'')}</p><table><tr><th>Descripción</th><th>Medidas</th><th>Total</th></tr><tr><td>${esc(p.descripcion)}</td><td>${esc(p.medidas)}</td><td>${money(p.total)}</td></tr></table><p>Estado: ${esc(p.estado)}</p><p>Observaciones: ${esc(p.observaciones)}</p><p>Seña recibida: ${money(p.sena)}</p><div class="total">TOTAL: ${money(p.total)}</div><p>Saldo pendiente: ${money(Math.max(0,p.total-p.sena))}</p><script>window.onload=()=>window.print()<\/script></html>`);w.document.close()}
+function renderTrabajos(){$('listaTrabajos').innerHTML=[...db.trabajos].reverse().map(t=>`<tr><td><b>${esc(t.nombre)}</b><br><span class="note">${esc(t.notas)}</span></td><td>${esc(clienteNombre(t.cliente))}</td><td>${esc(t.fecha)}</td><td><select onchange="cambiarEstadoTrabajo('${t.id}',this.value)">${['Pendiente','En producción','Listo para instalar','Finalizado'].map(s=>`<option ${s===t.estado?'selected':''}>${s}</option>`).join('')}</select></td><td><button class="danger" onclick="borrar('trabajos','${t.id}')">Eliminar</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Todavía no hay trabajos.</td></tr>'}
+function cambiarEstadoTrabajo(ident,estado){const t=db.trabajos.find(x=>x.id===ident);if(t){t.estado=estado;save()}}
+function renderGastos(){$('listaGastos').innerHTML=[...db.gastos].reverse().map(g=>`<tr><td>${esc(g.fecha)}</td><td>${esc(g.tipo)}</td><td>${esc(g.concepto)}</td><td>${money(g.importe)}</td><td><button class="danger" onclick="borrar('gastos','${g.id}')">Eliminar</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Todavía no hay movimientos.</td></tr>'}
+function render(){ $('sClientes').textContent=db.clientes.length;$('sPresupuestos').textContent=db.presupuestos.length;$('sTrabajos').textContent=db.trabajos.filter(t=>t.estado!=='Finalizado').length;const saldo=db.gastos.reduce((a,g)=>a+(g.tipo==='Ingreso'?g.importe:-g.importe),0);$('sSaldo').textContent=money(saldo);renderClientes();renderPresupuestos();renderTrabajos();renderGastos();$('ultimos').innerHTML=[...db.presupuestos].reverse().slice(0,5).map(p=>`<p>${esc(clienteNombre(p.cliente))} — ${esc(p.descripcion)}: <b>${money(p.total)}</b></p>`).join('')||'<p class="empty">Tus presupuestos aparecerán acá.</p>';actualizarSelects()}
+function exportar(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='respaldo-gestion-grafica.json';a.click();URL.revokeObjectURL(a.href)}
+function importar(){const file=$('archivo').files[0];if(!file){alert('Elegí primero un archivo JSON.');return}const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.clientes)||!Array.isArray(d.presupuestos)||!Array.isArray(d.trabajos)||!Array.isArray(d.gastos))throw Error();if(confirm('Esto reemplazará los datos actuales. ¿Continuar?')){db=d;save();alert('Respaldo importado.')}}catch(e){alert('El archivo no parece ser un respaldo válido.')}};r.readAsText(file)}
+render();
+</script>
+</body>
+</html>
