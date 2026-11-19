@@ -84,17 +84,17 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px
 <div class="field"><label>Fecha</label><input name="fecha" type="date" required></div>
 <div class="field"><label>Descripción del trabajo *</label><input name="descripcion" required placeholder="Ej. Cartel corpóreo retroiluminado"></div>
 <div class="field"><label>Medidas</label><input name="medidas" placeholder="Ej. 3,40 x 0,88 m"></div>
-<div class="field"><label>Materiales ($)</label><input name="materiales" type="number" min="0" step="0.01" value="0"></div>
-<div class="field"><label>Fabricación / mano de obra ($)</label><input name="mano" type="number" min="0" step="0.01" value="0"></div>
-<div class="field"><label>Instalación ($)</label><input name="instalacion" type="number" min="0" step="0.01" value="0"></div>
-<div class="field"><label>Otros costos ($)</label><input name="otros" type="number" min="0" step="0.01" value="0"></div>
+<div class="field full"><label>Detalle de trabajos y materiales</label>
+<div class="tablewrap"><table><thead><tr><th>Descripción</th><th style="min-width:90px">Cantidad</th><th style="min-width:100px">Unidad</th><th style="min-width:130px">Precio unitario</th><th>Total</th><th></th></tr></thead><tbody id="itemsPresupuesto"></tbody></table></div>
+<button type="button" onclick="agregarItem()" style="margin-top:10px">+ Agregar renglón</button></div>
 <div class="field"><label>Ganancia (%)</label><input name="ganancia" type="number" min="0" step="0.1" value="30"></div>
 <div class="field"><label>Descuento ($)</label><input name="descuento" type="number" min="0" step="0.01" value="0"></div>
 <div class="field"><label>Seña recibida ($)</label><input name="sena" type="number" min="0" step="0.01" value="0"></div>
+<div class="field"><label>IVA</label><select name="ivaActivo" id="ivaActivo"><option value="no">No incluir IVA</option><option value="si">Agregar IVA 21%</option></select></div>
 <div class="field"><label>Estado</label><select name="estado"><option>Pendiente</option><option>Enviado</option><option>Aceptado</option><option>Rechazado</option></select></div>
 <div class="field full"><label>Observaciones / condiciones</label><textarea name="observaciones" rows="2"></textarea></div>
 </div>
-<div class="card"><div class="stat-label">Total estimado (costos + porcentaje de ganancia - descuento)</div><div class="total" id="calculo">$0</div><div class="note">El cálculo es una ayuda de gestión; revisá impuestos y condiciones antes de entregar el presupuesto.</div></div>
+<div class="card"><div class="stat-label">Resumen del presupuesto</div><div id="resumenCalculo"></div><div class="total" id="calculo">$0</div><div class="note">El IVA se agrega únicamente si seleccionás “Agregar IVA 21%”.</div></div>
 <div class="actions"><button class="primary">Guardar presupuesto</button><button type="button" onclick="cerrar('formPresupuesto')">Cancelar</button></div>
 </form></div>
 <div class="card"><div class="tablewrap"><table><thead><tr><th>N.º / fecha</th><th>Cliente y trabajo</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody id="listaPresupuestos"></tbody></table></div></div>
@@ -141,14 +141,45 @@ function cerrar(id){$(id).classList.add('hidden')}
 function abrir(id){$(id).classList.remove('hidden')}
 $('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-page]');if(!b)return;document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));$(b.dataset.page).classList.remove('hidden');document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));render()});
 function formularioCliente(){ $('clienteForm').reset();abrir('formCliente')}
-function formularioPresupuesto(){if(!db.clientes.length){alert('Primero registrá un cliente.');return} $('presupuestoForm').reset();$('presupuestoForm').elements.fecha.value=hoy();actualizarSelects();abrir('formPresupuesto');calcular()}
+let presupuestoItems=[];
+function formularioPresupuesto(){if(!db.clientes.length){alert('Primero registrá un cliente.');return} $('presupuestoForm').reset();$('presupuestoForm').elements.fecha.value=hoy();actualizarSelects();presupuestoItems=[];agregarItem();abrir('formPresupuesto');calcular()}
 function formularioTrabajo(){$('trabajoForm').reset();$('trabajoForm').elements.fecha.value=hoy();actualizarSelects();abrir('formTrabajo')}
 function formularioGasto(){$('gastoForm').reset();$('gastoForm').elements.fecha.value=hoy();abrir('formGasto')}
 function actualizarSelects(){for(const name of ['pCliente','tCliente']){$(name).innerHTML='<option value="">Sin asignar</option>'+db.clientes.map(c=>`<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('')}}
 $('clienteForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.clientes.push({id:id(),nombre:f.get('nombre'),telefono:f.get('telefono'),email:f.get('email'),cuit:f.get('cuit'),notas:f.get('notas')});e.target.reset();cerrar('formCliente');save()};
-function calcular(){const f=$('presupuestoForm');if(!f)return;const n=k=>Number(f.elements[k].value)||0;const subtotal=n('materiales')+n('mano')+n('instalacion')+n('otros');$('calculo').textContent=money(Math.max(0,subtotal*(1+n('ganancia')/100)-n('descuento')))}
+function agregarItem(item={descripcion:'',cantidad:1,unidad:'u.',precio:0}){presupuestoItems.push({...item});renderItems();calcular()}
+function quitarItem(i){presupuestoItems.splice(i,1);renderItems();calcular()}
+function renderItems(){
+ $('itemsPresupuesto').innerHTML=presupuestoItems.map((it,i)=>`<tr>
+ <td><input aria-label="Descripción" value="${esc(it.descripcion)}" oninput="actualizarItem(${i},'descripcion',this.value)" placeholder="Ej. Lona mesh"></td>
+ <td><input aria-label="Cantidad" type="number" min="0" step="0.01" value="${Number(it.cantidad)||0}" oninput="actualizarItem(${i},'cantidad',this.value)"></td>
+ <td><select aria-label="Unidad" onchange="actualizarItem(${i},'unidad',this.value)"><option ${it.unidad==='u.'?'selected':''}>u.</option><option ${it.unidad==='m²'?'selected':''}>m²</option><option ${it.unidad==='m'?'selected':''}>m</option><option ${it.unidad==='ml'?'selected':''}>ml</option><option ${it.unidad==='hora'?'selected':''}>hora</option><option ${it.unidad==='global'?'selected':''}>global</option></select></td>
+ <td><input aria-label="Precio unitario" type="number" min="0" step="0.01" value="${Number(it.precio)||0}" oninput="actualizarItem(${i},'precio',this.value)"></td>
+ <td><b>${money((Number(it.cantidad)||0)*(Number(it.precio)||0))}</b></td><td><button type="button" class="danger" onclick="quitarItem(${i})">×</button></td></tr>`).join('');
+}
+function actualizarItem(i,campo,valor){presupuestoItems[i][campo]=['cantidad','precio'].includes(campo)?Number(valor)||0:valor;renderItems();calcular()}
+function calcular(){
+ const f=$('presupuestoForm');if(!f)return;
+ const n=k=>Number(f.elements[k]?.value)||0;
+ const subtotal=presupuestoItems.reduce((a,it)=>a+(Number(it.cantidad)||0)*(Number(it.precio)||0),0);
+ const conGanancia=Math.max(0,subtotal*(1+n('ganancia')/100)-n('descuento'));
+ const iva=f.elements.ivaActivo?.value==='si'?conGanancia*.21:0;
+ const total=conGanancia+iva;
+ $('resumenCalculo').innerHTML='<p>Subtotal: <b>'+money(subtotal)+'</b></p><p>Ganancia ('+n('ganancia')+'%): <b>'+money(subtotal*n('ganancia')/100)+'</b></p><p>Descuento: <b>− '+money(n('descuento'))+'</b></p><p>IVA 21%: <b>'+money(iva)+'</b></p>';
+ $('calculo').textContent=money(total);
+}
 $('presupuestoForm').addEventListener('input',calcular);
-$('presupuestoForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target),n=k=>Number(f.get(k))||0;const base=n('materiales')+n('mano')+n('instalacion')+n('otros');const total=Math.max(0,base*(1+n('ganancia')/100)-n('descuento'));db.presupuestos.push({id:id(),numero:String(Date.now()).slice(-6),fecha:f.get('fecha'),cliente:f.get('cliente'),descripcion:f.get('descripcion'),medidas:f.get('medidas'),materiales:n('materiales'),mano:n('mano'),instalacion:n('instalacion'),otros:n('otros'),ganancia:n('ganancia'),descuento:n('descuento'),sena:n('sena'),total,estado:f.get('estado'),observaciones:f.get('observaciones')});e.target.reset();cerrar('formPresupuesto');save()};
+$('presupuestoForm').addEventListener('change',calcular);
+$('presupuestoForm').onsubmit=e=>{
+ e.preventDefault();const f=new FormData(e.target),n=k=>Number(f.get(k))||0;
+ if(!presupuestoItems.length||presupuestoItems.every(it=>!it.descripcion.trim())){alert('Agregá al menos un renglón con descripción.');return}
+ const items=presupuestoItems.map(it=>({...it,total:(Number(it.cantidad)||0)*(Number(it.precio)||0)}));
+ const subtotal=items.reduce((a,it)=>a+it.total,0);
+ const base=Math.max(0,subtotal*(1+n('ganancia')/100)-n('descuento'));
+ const ivaActivo=f.get('ivaActivo')==='si',iva=ivaActivo?base*.21:0,total=base+iva;
+ db.presupuestos.push({id:id(),numero:String(Date.now()).slice(-6),fecha:f.get('fecha'),cliente:f.get('cliente'),descripcion:f.get('descripcion'),medidas:f.get('medidas'),items,subtotal,materiales:0,mano:0,instalacion:0,otros:0,ganancia:n('ganancia'),descuento:n('descuento'),ivaActivo,iva,sena:n('sena'),total,estado:f.get('estado'),observaciones:f.get('observaciones')});
+ e.target.reset();presupuestoItems=[];cerrar('formPresupuesto');save()
+};
 $('trabajoForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.trabajos.push({id:id(),nombre:f.get('nombre'),cliente:f.get('cliente'),fecha:f.get('fecha'),estado:f.get('estado'),notas:f.get('notas')});e.target.reset();cerrar('formTrabajo');save()};
 $('gastoForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.gastos.push({id:id(),tipo:f.get('tipo'),fecha:f.get('fecha'),concepto:f.get('concepto'),importe:Number(f.get('importe'))});e.target.reset();cerrar('formGasto');save()};
 function borrar(tipo,ident){if(confirm('¿Eliminar este registro?')){db[tipo]=db[tipo].filter(x=>x.id!==ident);save()}}
@@ -159,87 +190,23 @@ function imprimirPresupuesto(ident){
  const p=db.presupuestos.find(x=>x.id===ident);if(!p)return;
  const c=db.clientes.find(x=>x.id===p.cliente)||{};
  const w=window.open('','_blank');if(!w){alert('Permití las ventanas emergentes para generar el PDF.');return}
- const fmt=money;
- const subtotal=(Number(p.materiales)||0)+(Number(p.mano)||0)+(Number(p.instalacion)||0)+(Number(p.otros)||0);
+ const items=Array.isArray(p.items)&&p.items.length?p.items:[{descripcion:p.descripcion,cantidad:1,unidad:'global',precio:p.total,total:p.total}];
+ const subtotal=Number(p.subtotal)||items.reduce((a,it)=>a+(Number(it.total)||((Number(it.cantidad)||0)*(Number(it.precio)||0))),0);
  const ganancia=subtotal*(Number(p.ganancia)||0)/100;
- const total=Math.max(0,subtotal+ganancia-(Number(p.descuento)||0));
- const fecha=esc(p.fecha||'');
- w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Presupuesto ${esc(p.numero)}</title>
- <style>
- @page{size:A4;margin:10mm}
- *{box-sizing:border-box}
- body{font:10px Arial,sans-serif;color:#171717;margin:0;background:#fff}
- .sheet{width:190mm;min-height:277mm;margin:auto;border:1px solid #222;padding:7mm 6mm 8mm}
- h1{font-size:21px;text-align:center;margin:0 0 3px;letter-spacing:.3px}
- .subtitle{text-align:center;font-size:10px;margin-bottom:12px}
- table{width:100%;border-collapse:collapse;table-layout:fixed}
- td,th{border:1px solid #888;padding:5px 6px;vertical-align:middle}
- .meta td{height:23px}
- .label{font-weight:bold;background:#f0f0f0;width:19%}
- .section-title{font-weight:bold;background:#f1f1f1;text-align:center}
- .job{margin-top:12px}
- .job th{background:#f0f0f0;text-align:left}
- .job .workhead{background:#f5ef00;font-weight:bold;text-align:center}
- .job .green{background:#08713b;color:#fff;text-align:center;font-weight:bold}
- .job .yellow{background:#f5ef00;font-weight:bold}
- .job td{height:25px}
- .summary-title{text-align:center;font-size:18px;margin:28px 0 12px;font-weight:bold}
- .summary th{background:#e9e9e9}
- .summary .total td{font-weight:bold;border-top:2px solid #222}
- .amount{text-align:right;white-space:nowrap}
- .band{margin-top:13px}
- .band .orange{background:#f47700;font-weight:bold;text-align:center}
- .band .yellow{background:#f5ef00;font-weight:bold}
- .band .green{background:#00ef16}
- .payment-title,.conditions-title{font-weight:bold;margin:14px 0 5px;font-size:12px}
- .payment th{text-align:center;background:#eee}
- .conditions{height:62px;vertical-align:top;line-height:2.1}
- .muted{color:#555}
- .right{text-align:right}
- .small{font-size:9px}
- .footer{margin-top:8px;text-align:center;color:#666;font-size:8px}
- @media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{border:1px solid #222}}
- </style></head><body><div class="sheet">
- <h1>PRESUPUESTO DE GRÁFICA</h1><div class="subtitle">Presupuesto / Orden de trabajo</div>
- <table class="meta">
- <tr><td class="label">CLIENTE:</td><td>${esc(c.nombre||'')}</td><td class="label">FECHA:</td><td>${fecha}</td></tr>
- <tr><td class="label">OBRA / DIRECCIÓN:</td><td colspan="3">${esc(p.medidas||'')}</td></tr>
- <tr><td class="label">CONTACTO:</td><td>${esc(c.telefono||'')}</td><td class="label">N.º:</td><td>${esc(p.numero||'')}</td></tr>
- <tr><td class="label">EMPRESA / RESPONSABLE:</td><td colspan="3">${esc(c.nombre||'')}</td></tr>
- </table>
- <table class="job">
- <colgroup><col style="width:29%"><col style="width:12%"><col style="width:49%"><col style="width:6%"><col style="width:4%"></colgroup>
- <tr><th>TRABAJO</th><th>DETALLES</th><th class="workhead">PRECIOS / DETALLE DEL TRABAJO</th><th class="green">M2</th><th>TOTAL</th></tr>
- <tr><td rowspan="7"><b>${esc(p.descripcion)}</b><br><br><span class="muted">Estado: ${esc(p.estado)}</span></td><td rowspan="7">${esc(p.medidas||'—')}</td><td><b>Descripción</b> &nbsp; ${esc(p.descripcion)}</td><td class="green" rowspan="7"></td><td rowspan="7"></td></tr>
- <tr><td><b>Medidas</b> &nbsp; ${esc(p.medidas||'No especificadas')}</td></tr>
- <tr><td><b>Materiales</b> &nbsp; ${fmt(p.materiales)}</td></tr>
- <tr><td><b>Fabricación / mano de obra</b> &nbsp; ${fmt(p.mano)}</td></tr>
- <tr><td><b>Instalación</b> &nbsp; ${fmt(p.instalacion)}</td></tr>
- <tr><td><b>Otros costos</b> &nbsp; ${fmt(p.otros)}</td></tr>
- <tr><td><b>Observaciones</b> &nbsp; ${esc(p.observaciones||'—')}</td></tr>
- <tr><td colspan="2" class="yellow">TOTAL DEL TRABAJO</td><td class="yellow">${fmt(total)}</td><td></td><td class="yellow"></td></tr>
- </table>
- <table class="band">
- <tr><td class="orange" colspan="3">RESUMEN DE INSTALACIÓN Y ADICIONALES</td></tr>
- <tr><td class="yellow"><b>Instalación</b></td><td class="yellow amount">${fmt(p.instalacion)}</td><td></td></tr>
- <tr><td><b>Otros costos</b></td><td class="amount">${fmt(p.otros)}</td><td></td></tr>
- <tr><td><b>Adelanto recibido</b></td><td class="amount">${fmt(p.sena)}</td><td class="green"></td></tr>
- </table>
- <div class="summary-title">RESUMEN DEL TRABAJO</div>
- <table class="summary">
- <tr><th>Concepto</th><th>Detalle</th><th class="amount">Importe</th></tr>
- <tr><td>Trabajos realizados</td><td>${esc(p.descripcion)}</td><td class="amount">${fmt((Number(p.materiales)||0)+(Number(p.mano)||0))}</td></tr>
- <tr><td>Materiales / adicionales</td><td>Materiales: ${fmt(p.materiales)} · Otros: ${fmt(p.otros)}</td><td class="amount">${fmt((Number(p.materiales)||0)+(Number(p.otros)||0))}</td></tr>
- <tr><td>Mano de obra e instalación</td><td>Ganancia calculada: ${Number(p.ganancia)||0}%</td><td class="amount">${fmt((Number(p.mano)||0)+(Number(p.instalacion)||0)+ganancia)}</td></tr>
- <tr><td>Descuento</td><td></td><td class="amount">− ${fmt(p.descuento)}</td></tr>
- <tr class="total"><td colspan="2">TOTAL FINAL</td><td class="amount">${fmt(total)}</td></tr>
- </table>
- <div class="right small"><b>Saldo pendiente: ${fmt(Math.max(0,total-(Number(p.sena)||0)))}</b></div>
- <div class="payment-title">FORMA DE PAGO</div>
- <table class="payment"><tr><th>Efectivo</th><th>Transferencia</th><th>Mercado Pago</th><th>Otro</th></tr><tr><td style="text-align:center">□</td><td style="text-align:center">□</td><td style="text-align:center">□</td><td style="text-align:center">□</td></tr></table>
- <div class="conditions-title">CONDICIONES / OBSERVACIONES</div>
- <table><tr><td class="conditions">${esc(p.observaciones||'')}</td></tr></table>
- <div class="footer">GESTIÓN GRÁFICA · Cartelería · Gráfica · Instalaciones</div>
+ const base=Math.max(0,subtotal+ganancia-(Number(p.descuento)||0));
+ const iva=Number(p.iva)||0,total=Number(p.total)||base+iva;
+ const filas=items.map(it=>'<tr><td>'+esc(it.descripcion)+'</td><td class="num">'+(Number(it.cantidad)||0)+' '+esc(it.unidad||'')+'</td><td class="num">'+money(it.precio)+'</td><td class="num">'+money(it.total??((Number(it.cantidad)||0)*(Number(it.precio)||0)))+'</td></tr>').join('');
+ w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Presupuesto ${esc(p.numero)}</title><style>
+ @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font:12px Arial;color:#172033;margin:0}.sheet{width:100%;margin:auto}h1{margin:0;text-align:center;font-size:23px}.sub{text-align:center;color:#667085;margin:5px 0 22px}
+ .meta,.items,.totals{width:100%;border-collapse:collapse;margin:12px 0}.meta td,.items td,.items th,.totals td{border:1px solid #ccd2dc;padding:9px}.meta .label,.items th{background:#f0f3f8;font-weight:bold}.items th{text-align:left}.num{text-align:right;white-space:nowrap}.totals{width:55%;margin-left:auto}.grand{font-size:17px;font-weight:bold;background:#eef2ff}.foot{margin-top:25px;border-top:1px solid #ccd2dc;padding-top:12px;white-space:pre-wrap}
+ @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="sheet">
+ <h1>PRESUPUESTO DE GRÁFICA</h1><div class="sub">Cartelería · Gráfica · Instalaciones</div>
+ <table class="meta"><tr><td class="label">CLIENTE</td><td>${esc(c.nombre||'')}</td><td class="label">FECHA</td><td>${esc(p.fecha||'')}</td></tr>
+ <tr><td class="label">OBRA / MEDIDAS</td><td colspan="3">${esc(p.medidas||'')}</td></tr><tr><td class="label">CONTACTO</td><td>${esc(c.telefono||'')}</td><td class="label">PRESUPUESTO N.º</td><td>${esc(p.numero||'')}</td></tr></table>
+ <p><b>Trabajo:</b> ${esc(p.descripcion||'')}</p>
+ <table class="items"><thead><tr><th>Descripción</th><th class="num">Cantidad</th><th class="num">Precio unitario</th><th class="num">Total</th></tr></thead><tbody>${filas}</tbody></table>
+ <table class="totals"><tr><td>Subtotal</td><td class="num">${money(subtotal)}</td></tr><tr><td>Ganancia (${Number(p.ganancia)||0}%)</td><td class="num">${money(ganancia)}</td></tr><tr><td>Descuento</td><td class="num">− ${money(p.descuento)}</td></tr>${p.ivaActivo?'<tr><td>IVA 21%</td><td class="num">'+money(iva)+'</td></tr>':''}<tr class="grand"><td>TOTAL</td><td class="num">${money(total)}</td></tr><tr><td>Seña recibida</td><td class="num">${money(p.sena)}</td></tr><tr><td><b>Saldo pendiente</b></td><td class="num"><b>${money(Math.max(0,total-(Number(p.sena)||0)))}</b></td></tr></table>
+ <div class="foot"><b>Condiciones / observaciones</b><br>${esc(p.observaciones||'')}</div>
  </div><script>window.onload=()=>window.print()<\/script></body></html>`);
  w.document.close();
 }
