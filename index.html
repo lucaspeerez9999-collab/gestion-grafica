@@ -35,6 +35,29 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px
 .note{font-size:12px;color:var(--muted);line-height:1.5}
 .badge{display:inline-block;border-radius:20px;padding:5px 8px;background:#edf0f7;font-size:12px}
 @media(max-width:720px){header{padding:17px}main{padding:14px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}.stat-number{font-size:21px}}
+
+/* Diseño profesional para presupuestos */
+#formPresupuesto{border:1px solid #dfe5f1;box-shadow:0 12px 34px rgba(23,32,51,.07);padding:24px}
+#formPresupuesto>h3{font-size:22px;margin-bottom:20px;color:#172033}
+#presupuestoForm .formgrid{gap:16px}
+#presupuestoForm .field{background:#f8faff;border:1px solid #e8edf6;border-radius:12px;padding:13px;margin:0}
+#presupuestoForm .field.full{padding:16px}
+#presupuestoForm label{font-weight:700;color:#47536a;margin-bottom:8px}
+#presupuestoForm input,#presupuestoForm select,#presupuestoForm textarea{border-color:#d8dfeb;border-radius:9px;min-height:43px}
+#presupuestoForm input:focus,#presupuestoForm select:focus,#presupuestoForm textarea:focus{outline:2px solid rgba(49,92,245,.18);border-color:#315cf5}
+#itemsPresupuesto input,#itemsPresupuesto select{min-width:90px;padding:10px}
+#itemsPresupuesto td{padding:9px 7px}
+#itemsPresupuesto tr:hover{background:#f8faff}
+#presupuestoForm .field.full>button{background:#eef2ff;color:#2449d7;border:1px solid #dce4ff}
+#presupuestoForm .card{background:linear-gradient(135deg,#f8faff,#eef3ff);border:1px solid #dce5fb;border-radius:14px;padding:20px}
+#resumenCalculo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 18px}
+#resumenCalculo p{margin:7px 0;color:#58647a}
+#calculo{font-size:30px;color:#2449d7;border-top:1px solid #d7e1f5;padding-top:13px;margin-top:12px}
+#presupuestoForm .actions button{padding:13px 18px}
+#listaPresupuestos td{padding:15px 10px}
+#listaPresupuestos tr:hover{background:#f8faff}
+@media(max-width:720px){#formPresupuesto{padding:15px}#presupuestoForm .formgrid{gap:10px}#resumenCalculo{grid-template-columns:1fr}#calculo{font-size:26px}#itemsPresupuesto input,#itemsPresupuesto select{min-width:112px}}
+
 @media print{header,nav,.no-print{display:none!important}body{background:white}main{padding:0}.card{border:0}}
 </style>
 </head>
@@ -78,13 +101,13 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px
 <section id="presupuestos" class="page hidden">
 <div class="toolbar"><h2>Presupuestos</h2><button class="primary" onclick="formularioPresupuesto()">+ Nuevo presupuesto</button></div>
 <div id="formPresupuesto" class="card hidden">
-<h3>Crear presupuesto</h3><form id="presupuestoForm">
+<h3>Nuevo presupuesto <span class="badge">Cotización</span></h3><form id="presupuestoForm">
 <div class="formgrid">
 <div class="field"><label>Cliente *</label><select name="cliente" id="pCliente" required></select></div>
 <div class="field"><label>Fecha</label><input name="fecha" type="date" required></div>
 <div class="field"><label>Descripción del trabajo *</label><input name="descripcion" required placeholder="Ej. Cartel corpóreo retroiluminado"></div>
 <div class="field"><label>Medidas</label><input name="medidas" placeholder="Ej. 3,40 x 0,88 m"></div>
-<div class="field full"><label>Detalle de trabajos y materiales</label>
+<div class="field full"><label>Detalle de trabajos y materiales</label><p class="note">Agregá cada tarea o material con su cantidad, unidad y precio.</p>
 <div class="tablewrap"><table><thead><tr><th>Descripción</th><th style="min-width:90px">Cantidad</th><th style="min-width:100px">Unidad</th><th style="min-width:130px">Precio unitario</th><th>Total</th><th></th></tr></thead><tbody id="itemsPresupuesto"></tbody></table></div>
 <button type="button" onclick="agregarItem()" style="margin-top:10px">+ Agregar renglón</button></div>
 <div class="field"><label>Ganancia (%)</label><input name="ganancia" type="number" min="0" step="0.1" value="30"></div>
