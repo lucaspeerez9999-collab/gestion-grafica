@@ -110,7 +110,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px
 <div class="field full"><label>Detalle de trabajos y materiales</label><p class="note">Agregá cada tarea o material con su cantidad, unidad y precio.</p>
 <div class="tablewrap"><table><thead><tr><th>Descripción</th><th style="min-width:90px">Cantidad</th><th style="min-width:100px">Unidad</th><th style="min-width:130px">Precio unitario</th><th>Total</th><th></th></tr></thead><tbody id="itemsPresupuesto"></tbody></table></div>
 <button type="button" onclick="agregarItem()" style="margin-top:10px">+ Agregar renglón</button></div>
-<div class="field"><label>Ganancia (%)</label><input name="ganancia" type="number" min="0" step="0.1" value="30"></div>
+<div class="field"><label>Ganancia interna (%)</label><input name="ganancia" type="number" min="0" step="0.1" value="30"></div>
 <div class="field"><label>Descuento ($)</label><input name="descuento" type="number" min="0" step="0.01" value="0"></div>
 <div class="field"><label>Seña recibida ($)</label><input name="sena" type="number" min="0" step="0.01" value="0"></div>
 <div class="field"><label>IVA</label><select name="ivaActivo" id="ivaActivo"><option value="no">No incluir IVA</option><option value="si">Agregar IVA 21%</option></select></div>
@@ -180,7 +180,7 @@ function renderItems(){
  <td><input aria-label="Precio unitario" type="number" min="0" step="0.01" value="${Number(it.precio)||0}" oninput="actualizarItem(${i},'precio',this.value)"></td>
  <td><b>${money((Number(it.cantidad)||0)*(Number(it.precio)||0))}</b></td><td><button type="button" class="danger" onclick="quitarItem(${i})">×</button></td></tr>`).join('');
 }
-function actualizarItem(i,campo,valor){presupuestoItems[i][campo]=['cantidad','precio'].includes(campo)?Number(valor)||0:valor;renderItems();calcular()}
+function actualizarItem(i,campo,valor){presupuestoItems[i][campo]=['cantidad','precio'].includes(campo)?Number(valor)||0:valor;const it=presupuestoItems[i],row=$('itemsPresupuesto').rows[i];if(row)row.cells[4].innerHTML='<b>'+money((Number(it.cantidad)||0)*(Number(it.precio)||0))+'</b>';calcular()}
 function calcular(){
  const f=$('presupuestoForm');if(!f)return;
  const n=k=>Number(f.elements[k]?.value)||0;
@@ -216,9 +216,11 @@ function imprimirPresupuesto(ident){
  const items=Array.isArray(p.items)&&p.items.length?p.items:[{descripcion:p.descripcion,cantidad:1,unidad:'global',precio:p.total,total:p.total}];
  const subtotal=Number(p.subtotal)||items.reduce((a,it)=>a+(Number(it.total)||((Number(it.cantidad)||0)*(Number(it.precio)||0))),0);
  const ganancia=subtotal*(Number(p.ganancia)||0)/100;
- const base=Math.max(0,subtotal+ganancia-(Number(p.descuento)||0));
+ const factor=subtotal>0?(subtotal+ganancia)/subtotal:1;
+ const subtotalVenta=subtotal+ganancia;
+ const base=Math.max(0,subtotalVenta-(Number(p.descuento)||0));
  const iva=Number(p.iva)||0,total=Number(p.total)||base+iva;
- const filas=items.map(it=>'<tr><td>'+esc(it.descripcion)+'</td><td class="num">'+(Number(it.cantidad)||0)+' '+esc(it.unidad||'')+'</td><td class="num">'+money(it.precio)+'</td><td class="num">'+money(it.total??((Number(it.cantidad)||0)*(Number(it.precio)||0)))+'</td></tr>').join('');
+ const filas=items.map(it=>'<tr><td>'+esc(it.descripcion)+'</td><td class="num">'+(Number(it.cantidad)||0)+' '+esc(it.unidad||'')+'</td><td class="num">'+money((Number(it.precio)||0)*factor)+'</td><td class="num">'+money((Number(it.total??((Number(it.cantidad)||0)*(Number(it.precio)||0)))||0)*factor)+'</td></tr>').join('');
  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Presupuesto ${esc(p.numero)}</title><style>
  @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font:12px Arial;color:#172033;margin:0}.sheet{width:100%;margin:auto}h1{margin:0;text-align:center;font-size:23px}.sub{text-align:center;color:#667085;margin:5px 0 22px}
  .meta,.items,.totals{width:100%;border-collapse:collapse;margin:12px 0}.meta td,.items td,.items th,.totals td{border:1px solid #ccd2dc;padding:9px}.meta .label,.items th{background:#f0f3f8;font-weight:bold}.items th{text-align:left}.num{text-align:right;white-space:nowrap}.totals{width:55%;margin-left:auto}.grand{font-size:17px;font-weight:bold;background:#eef2ff}.foot{margin-top:25px;border-top:1px solid #ccd2dc;padding-top:12px;white-space:pre-wrap}
@@ -228,7 +230,7 @@ function imprimirPresupuesto(ident){
  <tr><td class="label">OBRA / MEDIDAS</td><td colspan="3">${esc(p.medidas||'')}</td></tr><tr><td class="label">CONTACTO</td><td>${esc(c.telefono||'')}</td><td class="label">PRESUPUESTO N.º</td><td>${esc(p.numero||'')}</td></tr></table>
  <p><b>Trabajo:</b> ${esc(p.descripcion||'')}</p>
  <table class="items"><thead><tr><th>Descripción</th><th class="num">Cantidad</th><th class="num">Precio unitario</th><th class="num">Total</th></tr></thead><tbody>${filas}</tbody></table>
- <table class="totals"><tr><td>Subtotal</td><td class="num">${money(subtotal)}</td></tr><tr><td>Ganancia (${Number(p.ganancia)||0}%)</td><td class="num">${money(ganancia)}</td></tr><tr><td>Descuento</td><td class="num">− ${money(p.descuento)}</td></tr>${p.ivaActivo?'<tr><td>IVA 21%</td><td class="num">'+money(iva)+'</td></tr>':''}<tr class="grand"><td>TOTAL</td><td class="num">${money(total)}</td></tr><tr><td>Seña recibida</td><td class="num">${money(p.sena)}</td></tr><tr><td><b>Saldo pendiente</b></td><td class="num"><b>${money(Math.max(0,total-(Number(p.sena)||0)))}</b></td></tr></table>
+ <table class="totals"><tr><td>Subtotal</td><td class="num">${money(subtotalVenta)}</td></tr><tr><td>Descuento</td><td class="num">− ${money(p.descuento)}</td></tr>${p.ivaActivo?'<tr><td>IVA 21%</td><td class="num">'+money(iva)+'</td></tr>':''}<tr class="grand"><td>TOTAL</td><td class="num">${money(total)}</td></tr><tr><td>Seña recibida</td><td class="num">${money(p.sena)}</td></tr><tr><td><b>Saldo pendiente</b></td><td class="num"><b>${money(Math.max(0,total-(Number(p.sena)||0)))}</b></td></tr></table>
  <div class="foot"><b>Condiciones / observaciones</b><br>${esc(p.observaciones||'')}</div>
  </div><script>window.onload=()=>window.print()<\/script></body></html>`);
  w.document.close();
