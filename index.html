@@ -153,7 +153,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px
 <div class="field"><label>Observaciones generales</label><textarea name="observaciones" rows="2"></textarea></div>
 </div>
 <div class="card"><div class="stat-label">Resumen de liquidación</div><div id="resumenLiquidacion"></div><div class="total" id="totalLiquidacion">$0</div></div>
-<div class="actions"><button class="primary">Guardar liquidación</button><button type="button" onclick="cerrar('formLiquidacion')">Cancelar</button></div>
+<div class="actions"><button class="primary" id="btnGuardarLiquidacion">Guardar liquidación</button><button type="button" onclick="cerrar('formLiquidacion')">Cancelar</button></div>
 <p class="note">Las fotos se reducen antes de guardarse en este navegador. Descargá periódicamente un respaldo de tus datos.</p>
 </form></div>
 <div class="card"><div class="tablewrap"><table><thead><tr><th>Período / fecha</th><th>Cliente</th><th>Trabajos</th><th>Total</th><th>Saldo</th><th></th></tr></thead><tbody id="listaLiquidaciones"></tbody></table></div></div>
@@ -266,9 +266,25 @@ function cambiarEstadoTrabajo(ident,estado){const t=db.trabajos.find(x=>x.id===i
 function renderGastos(){$('listaGastos').innerHTML=[...db.gastos].reverse().map(g=>`<tr><td>${esc(g.fecha)}</td><td>${esc(g.tipo)}</td><td>${esc(g.concepto)}</td><td>${money(g.importe)}</td><td><button class="danger" onclick="borrar('gastos','${g.id}')">Eliminar</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Todavía no hay movimientos.</td></tr>'}
 
 let trabajosLiq=[];
+let liquidacionEditando=null;
 function formularioLiquidacion(){
+ liquidacionEditando=null;
+ $('tituloFormLiquidacion').textContent='Nueva liquidación';
+ $('btnGuardarLiquidacion').textContent='Guardar liquidación';
  if(!db.clientes.length){alert('Primero registrá un cliente.');return}
  $('liquidacionForm').reset();$('liquidacionForm').elements.fecha.value=hoy();actualizarSelects();trabajosLiq=[];agregarTrabajoLiq();abrir('formLiquidacion');calcularLiquidacion()
+}
+function editarLiquidacion(ident){
+ const l=(db.liquidaciones||[]).find(x=>x.id===ident);if(!l)return;
+ liquidacionEditando=ident;
+ const form=$('liquidacionForm');form.reset();actualizarSelects();
+ for(const k of ['cliente','periodo','obra','contacto','referencia','fecha','adelanto','observaciones']) if(form.elements[k]) form.elements[k].value=l[k]??'';
+ trabajosLiq=(l.trabajos||[]).map(t=>({...t,fotos:Array.isArray(t.fotos)?[...t.fotos]:[]}));
+ if(!trabajosLiq.length)trabajosLiq=[{descripcion:'',medidas:'',cantidad:1,materiales:'',manoObra:'',precio:0,observaciones:'',fotos:[]}];
+ $('tituloFormLiquidacion').textContent='Modificar liquidación';
+ $('btnGuardarLiquidacion').textContent='Guardar cambios';
+ renderTrabajosLiq();abrir('formLiquidacion');calcularLiquidacion();
+ document.getElementById('formLiquidacion').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function agregarTrabajoLiq(t={descripcion:'',medidas:'',cantidad:1,materiales:'',manoObra:'',precio:0,observaciones:'',fotos:[]}){
  trabajosLiq.push({...t,fotos:Array.isArray(t.fotos)?t.fotos:[]});renderTrabajosLiq();calcularLiquidacion()
@@ -300,12 +316,14 @@ function calcularLiquidacion(){
 $('liquidacionForm').onsubmit=e=>{
  e.preventDefault();const f=new FormData(e.target);if(!trabajosLiq.length||trabajosLiq.some(t=>!t.descripcion.trim())){alert('Completá la descripción de cada trabajo o eliminá los renglones vacíos.');return}
  const total=trabajosLiq.reduce((a,t)=>a+(Number(t.precio)||0),0);
- db.liquidaciones.push({id:id(),cliente:f.get('cliente'),periodo:f.get('periodo'),obra:f.get('obra'),contacto:f.get('contacto'),referencia:f.get('referencia'),fecha:f.get('fecha'),adelanto:Number(f.get('adelanto'))||0,observaciones:f.get('observaciones'),trabajos:trabajosLiq.map(t=>({...t})),total,saldo:Math.max(0,total-(Number(f.get('adelanto'))||0))});
- trabajosLiq=[];e.target.reset();cerrar('formLiquidacion');save()
+ const registro={id:liquidacionEditando||id(),cliente:f.get('cliente'),periodo:f.get('periodo'),obra:f.get('obra'),contacto:f.get('contacto'),referencia:f.get('referencia'),fecha:f.get('fecha'),adelanto:Number(f.get('adelanto'))||0,observaciones:f.get('observaciones'),trabajos:trabajosLiq.map(t=>({...t,fotos:[...(t.fotos||[])]})),total,saldo:Math.max(0,total-(Number(f.get('adelanto'))||0))};
+ if(liquidacionEditando){const idx=db.liquidaciones.findIndex(x=>x.id===liquidacionEditando);if(idx>=0)db.liquidaciones[idx]=registro;else db.liquidaciones.push(registro)}
+ else db.liquidaciones.push(registro);
+ liquidacionEditando=null;trabajosLiq=[];e.target.reset();cerrar('formLiquidacion');save()
 };
 function renderLiquidaciones(){
  const rows=[...(db.liquidaciones||[])].reverse();
- $('listaLiquidaciones').innerHTML=rows.map(l=>`<tr><td><b>${esc(l.periodo)}</b><br><span class="note">${esc(l.fecha)}</span></td><td>${esc(clienteNombre(l.cliente))}</td><td>${(l.trabajos||[]).length}</td><td><b>${money(l.total)}</b></td><td>${money(l.saldo)}</td><td><div class="actions"><button onclick="imprimirLiquidacion('${l.id}')">PDF</button><button class="danger" onclick="borrar('liquidaciones','${l.id}')">Eliminar</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Todavía no hay liquidaciones.</td></tr>'
+ $('listaLiquidaciones').innerHTML=rows.map(l=>`<tr><td><b>${esc(l.periodo)}</b><br><span class="note">${esc(l.fecha)}</span></td><td>${esc(clienteNombre(l.cliente))}</td><td>${(l.trabajos||[]).length}</td><td><b>${money(l.total)}</b></td><td>${money(l.saldo)}</td><td><div class="actions"><button onclick="editarLiquidacion('${l.id}')">Modificar</button><button onclick="imprimirLiquidacion('${l.id}')">PDF</button><button class="danger" onclick="borrar('liquidaciones','${l.id}')">Eliminar</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Todavía no hay liquidaciones.</td></tr>'
 }
 function imprimirLiquidacion(ident){
  const l=(db.liquidaciones||[]).find(x=>x.id===ident);if(!l)return;
@@ -339,7 +357,7 @@ for (const k of ['clientes','presupuestos','trabajos','gastos','liquidaciones'])
 // los botones igualmente quedan conectados y se puede seguir diagnosticando.
 Object.assign(window,{
   formularioCliente, formularioPresupuesto, formularioTrabajo, formularioGasto,
-  formularioLiquidacion, abrir, cerrar, borrar, imprimirPresupuesto,
+  formularioLiquidacion, editarLiquidacion, abrir, cerrar, borrar, imprimirPresupuesto,
   imprimirLiquidacion, agregarItem, quitarItem, actualizarItem,
   actualizarTrabajoLiq, eliminarTrabajoLiq, cargarFotosLiq, quitarFotoLiq,
   cambiarEstadoTrabajo, renderClientes, exportar, importar
