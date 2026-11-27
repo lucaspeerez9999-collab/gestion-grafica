@@ -319,6 +319,15 @@ function render(){ $('sClientes').textContent=db.clientes.length;$('sPresupuesto
 function exportar(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='respaldo-gestion-grafica.json';a.click();URL.revokeObjectURL(a.href)}
 function importar(){const file=$('archivo').files[0];if(!file){alert('Elegí primero un archivo JSON.');return}const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.clientes)||!Array.isArray(d.presupuestos)||!Array.isArray(d.trabajos)||!Array.isArray(d.gastos))throw Error();if(!Array.isArray(d.liquidaciones))d.liquidaciones=[];if(confirm('Esto reemplazará los datos actuales. ¿Continuar?')){db=d;save();alert('Respaldo importado.')}}catch(e){alert('El archivo no parece ser un respaldo válido.')}};r.readAsText(file)}
 render();
+// Compatibilidad con Safari/iOS: publicar explícitamente las acciones usadas
+// por los atributos onclick/onchange del HTML.
+Object.assign(window,{
+  formularioCliente, formularioPresupuesto, formularioTrabajo, formularioGasto,
+  formularioLiquidacion, abrir, cerrar, borrar, imprimirPresupuesto,
+  imprimirLiquidacion, agregarItem, quitarItem, actualizarItem,
+  actualizarTrabajoLiq, eliminarTrabajoLiq, cargarFotosLiq, quitarFotoLiq,
+  cambiarEstadoTrabajo, renderClientes, exportar, importar
+});
 </script>
 </body>
 </html>
