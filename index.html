@@ -275,16 +275,30 @@ function formularioLiquidacion(){
  $('liquidacionForm').reset();$('liquidacionForm').elements.fecha.value=hoy();actualizarSelects();trabajosLiq=[];agregarTrabajoLiq();abrir('formLiquidacion');calcularLiquidacion()
 }
 function editarLiquidacion(ident){
- const l=(db.liquidaciones||[]).find(x=>x.id===ident);if(!l)return;
- liquidacionEditando=ident;
- const form=$('liquidacionForm');form.reset();actualizarSelects();
- for(const k of ['cliente','periodo','obra','contacto','referencia','fecha','adelanto','observaciones']) if(form.elements[k]) form.elements[k].value=l[k]??'';
- trabajosLiq=(l.trabajos||[]).map(t=>({...t,fotos:Array.isArray(t.fotos)?[...t.fotos]:[]}));
- if(!trabajosLiq.length)trabajosLiq=[{descripcion:'',medidas:'',cantidad:1,materiales:'',manoObra:'',precio:0,observaciones:'',fotos:[]}];
- $('tituloFormLiquidacion').textContent='Modificar liquidación';
- $('btnGuardarLiquidacion').textContent='Guardar cambios';
- renderTrabajosLiq();abrir('formLiquidacion');calcularLiquidacion();
- document.getElementById('formLiquidacion').scrollIntoView({behavior:'smooth',block:'start'});
+ try{
+  const l=(db.liquidaciones||[]).find(x=>String(x.id)===String(ident));
+  if(!l){alert('No se encontró la liquidación seleccionada.');return}
+  const form=$('liquidacionForm');
+  if(!form)throw new Error('No se encontró el formulario de liquidación.');
+  liquidacionEditando=l.id;
+  form.reset();
+  actualizarSelects();
+  ['cliente','periodo','obra','contacto','referencia','fecha','adelanto','observaciones'].forEach(k=>{
+   const el=form.elements.namedItem(k);if(el)el.value=l[k]??'';
+  });
+  const selector=$('lCliente');if(selector)selector.value=l.cliente||'';
+  trabajosLiq=(Array.isArray(l.trabajos)?l.trabajos:[]).map(t=>({...t,fotos:Array.isArray(t.fotos)?t.fotos.slice():[]}));
+  if(!trabajosLiq.length)trabajosLiq.push({descripcion:'',medidas:'',cantidad:1,materiales:'',manoObra:'',precio:0,observaciones:'',fotos:[]});
+  const titulo=$('tituloFormLiquidacion');if(titulo)titulo.textContent='Modificar liquidación';
+  const boton=$('btnGuardarLiquidacion');if(boton)boton.textContent='Guardar cambios';
+  renderTrabajosLiq();
+  abrir('formLiquidacion');
+  calcularLiquidacion();
+  const panel=$('formLiquidacion');if(panel&&typeof panel.scrollIntoView==='function')panel.scrollIntoView({behavior:'auto',block:'start'});
+ }catch(error){
+  console.error('Error al modificar liquidación:',error);
+  alert('No se pudo abrir la liquidación para modificarla: '+(error.message||error));
+ }
 }
 function agregarTrabajoLiq(t={descripcion:'',medidas:'',cantidad:1,materiales:'',manoObra:'',precio:0,observaciones:'',fotos:[]}){
  trabajosLiq.push({...t,fotos:Array.isArray(t.fotos)?t.fotos:[]});renderTrabajosLiq();calcularLiquidacion()
