@@ -58,7 +58,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px
 #listaPresupuestos tr:hover{background:#f8faff}
 @media(max-width:720px){#formPresupuesto{padding:15px}#presupuestoForm .formgrid{gap:10px}#resumenCalculo{grid-template-columns:1fr}#calculo{font-size:26px}#itemsPresupuesto input,#itemsPresupuesto select{min-width:112px}}
 
-@media print{header,nav,.no-print{display:none!important}body{background:white}main{padding:0}.card{border:0}}
+.liq-fotos{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.liq-fotos span{position:relative}.liq-fotos img{width:76px;height:64px;object-fit:cover;border-radius:6px;border:1px solid #ddd}.liq-fotos button{padding:3px 7px!important}.liq-item{background:#fbfcff;border:1px solid #dfe5f1}@media(max-width:720px){.liq-item{padding:12px}.liq-item .toolbar{align-items:center}.liq-item .formgrid{grid-template-columns:1fr}.liq-item .field.full{grid-column:auto}#itemsLiquidacion input{min-height:44px}}\n@media print{header,nav,.no-print{display:none!important}body{background:white}main{padding:0}.card{border:0}}
 </style>
 </head>
 <body>
@@ -72,6 +72,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px
 <button data-page="clientes">Clientes</button>
 <button data-page="presupuestos">Presupuestos</button>
 <button data-page="trabajos">Órdenes de trabajo</button>
+<button data-page="liquidaciones">Trabajos realizados</button>
 <button data-page="gastos">Gastos y caja</button>
 <button data-page="datos">Respaldo</button>
 </nav>
@@ -133,6 +134,30 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px
 </div><div class="actions"><button class="primary">Guardar trabajo</button><button type="button" onclick="cerrar('formTrabajo')">Cancelar</button></div></form></div>
 <div class="card"><div class="tablewrap"><table><thead><tr><th>Trabajo</th><th>Cliente</th><th>Entrega</th><th>Estado</th><th></th></tr></thead><tbody id="listaTrabajos"></tbody></table></div></div>
 </section>
+
+<section id="liquidaciones" class="page hidden">
+<div class="toolbar"><h2>Trabajos realizados / Liquidaciones</h2><button class="primary" onclick="formularioLiquidacion()">+ Nueva liquidación</button></div>
+<div id="formLiquidacion" class="card hidden"><h3>Liquidación para facturar</h3><form id="liquidacionForm">
+<div class="formgrid">
+<div class="field"><label>Cliente *</label><select name="cliente" id="lCliente" required></select></div>
+<div class="field"><label>Período *</label><input name="periodo" placeholder="Ej. Octubre 2026" required></div>
+<div class="field"><label>Obra / dirección</label><input name="obra"></div>
+<div class="field"><label>Contacto / responsable</label><input name="contacto"></div>
+<div class="field"><label>N.º de orden / referencia</label><input name="referencia"></div>
+<div class="field"><label>Fecha de liquidación</label><input name="fecha" type="date" required></div>
+</div>
+<div class="toolbar" style="margin-top:20px"><h3>Detalle de trabajos</h3><button type="button" onclick="agregarTrabajoLiq()">+ Agregar trabajo</button></div>
+<div id="itemsLiquidacion"></div>
+<div class="formgrid">
+<div class="field"><label>Adelanto / pagos recibidos ($)</label><input name="adelanto" type="number" min="0" step="0.01" value="0" oninput="calcularLiquidacion()"></div>
+<div class="field"><label>Observaciones generales</label><textarea name="observaciones" rows="2"></textarea></div>
+</div>
+<div class="card"><div class="stat-label">Resumen de liquidación</div><div id="resumenLiquidacion"></div><div class="total" id="totalLiquidacion">$0</div></div>
+<div class="actions"><button class="primary">Guardar liquidación</button><button type="button" onclick="cerrar('formLiquidacion')">Cancelar</button></div>
+<p class="note">Las fotos se reducen antes de guardarse en este navegador. Descargá periódicamente un respaldo de tus datos.</p>
+</form></div>
+<div class="card"><div class="tablewrap"><table><thead><tr><th>Período / fecha</th><th>Cliente</th><th>Trabajos</th><th>Total</th><th>Saldo</th><th></th></tr></thead><tbody id="listaLiquidaciones"></tbody></table></div></div>
+</section>
 <section id="gastos" class="page hidden">
 <div class="toolbar"><h2>Gastos y caja</h2><button class="primary" onclick="formularioGasto()">+ Registrar movimiento</button></div>
 <div id="formGasto" class="card hidden"><h3>Movimiento de caja</h3><form id="gastoForm"><div class="formgrid">
@@ -152,7 +177,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px
 </main>
 <script>
 const key='gestionGrafica_v1';
-let db={clientes:[],presupuestos:[],trabajos:[],gastos:[]};
+let db={clientes:[],presupuestos:[],trabajos:[],gastos:[],liquidaciones:[]};
 try{const saved=localStorage.getItem(key);if(saved)db={...db,...JSON.parse(saved)}}catch(e){}
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2}).format(Number(n)||0);
@@ -168,7 +193,7 @@ let presupuestoItems=[];
 function formularioPresupuesto(){if(!db.clientes.length){alert('Primero registrá un cliente.');return} $('presupuestoForm').reset();$('presupuestoForm').elements.fecha.value=hoy();actualizarSelects();presupuestoItems=[];agregarItem();abrir('formPresupuesto');calcular()}
 function formularioTrabajo(){$('trabajoForm').reset();$('trabajoForm').elements.fecha.value=hoy();actualizarSelects();abrir('formTrabajo')}
 function formularioGasto(){$('gastoForm').reset();$('gastoForm').elements.fecha.value=hoy();abrir('formGasto')}
-function actualizarSelects(){for(const name of ['pCliente','tCliente']){$(name).innerHTML='<option value="">Sin asignar</option>'+db.clientes.map(c=>`<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('')}}
+function actualizarSelects(){for(const name of ['pCliente','tCliente','lCliente']){$(name).innerHTML='<option value="">Sin asignar</option>'+db.clientes.map(c=>`<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('')}}
 $('clienteForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.clientes.push({id:id(),nombre:f.get('nombre'),telefono:f.get('telefono'),email:f.get('email'),cuit:f.get('cuit'),notas:f.get('notas')});e.target.reset();cerrar('formCliente');save()};
 function agregarItem(item={descripcion:'',cantidad:1,unidad:'u.',precio:0}){presupuestoItems.push({...item});renderItems();calcular()}
 function quitarItem(i){presupuestoItems.splice(i,1);renderItems();calcular()}
@@ -239,9 +264,58 @@ function imprimirPresupuesto(ident){
 function renderTrabajos(){$('listaTrabajos').innerHTML=[...db.trabajos].reverse().map(t=>`<tr><td><b>${esc(t.nombre)}</b><br><span class="note">${esc(t.notas)}</span></td><td>${esc(clienteNombre(t.cliente))}</td><td>${esc(t.fecha)}</td><td><select onchange="cambiarEstadoTrabajo('${t.id}',this.value)">${['Pendiente','En producción','Listo para instalar','Finalizado'].map(s=>`<option ${s===t.estado?'selected':''}>${s}</option>`).join('')}</select></td><td><button class="danger" onclick="borrar('trabajos','${t.id}')">Eliminar</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Todavía no hay trabajos.</td></tr>'}
 function cambiarEstadoTrabajo(ident,estado){const t=db.trabajos.find(x=>x.id===ident);if(t){t.estado=estado;save()}}
 function renderGastos(){$('listaGastos').innerHTML=[...db.gastos].reverse().map(g=>`<tr><td>${esc(g.fecha)}</td><td>${esc(g.tipo)}</td><td>${esc(g.concepto)}</td><td>${money(g.importe)}</td><td><button class="danger" onclick="borrar('gastos','${g.id}')">Eliminar</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Todavía no hay movimientos.</td></tr>'}
-function render(){ $('sClientes').textContent=db.clientes.length;$('sPresupuestos').textContent=db.presupuestos.length;$('sTrabajos').textContent=db.trabajos.filter(t=>t.estado!=='Finalizado').length;const saldo=db.gastos.reduce((a,g)=>a+(g.tipo==='Ingreso'?g.importe:-g.importe),0);$('sSaldo').textContent=money(saldo);renderClientes();renderPresupuestos();renderTrabajos();renderGastos();$('ultimos').innerHTML=[...db.presupuestos].reverse().slice(0,5).map(p=>`<p>${esc(clienteNombre(p.cliente))} — ${esc(p.descripcion)}: <b>${money(p.total)}</b></p>`).join('')||'<p class="empty">Tus presupuestos aparecerán acá.</p>';actualizarSelects()}
+
+let trabajosLiq=[];
+function formularioLiquidacion(){
+ if(!db.clientes.length){alert('Primero registrá un cliente.');return}
+ $('liquidacionForm').reset();$('liquidacionForm').elements.fecha.value=hoy();actualizarSelects();trabajosLiq=[];agregarTrabajoLiq();abrir('formLiquidacion');calcularLiquidacion()
+}
+function agregarTrabajoLiq(t={descripcion:'',medidas:'',cantidad:1,materiales:'',manoObra:'',precio:0,observaciones:'',fotos:[]}){
+ trabajosLiq.push({...t,fotos:Array.isArray(t.fotos)?t.fotos:[]});renderTrabajosLiq();calcularLiquidacion()
+}
+function eliminarTrabajoLiq(i){trabajosLiq.splice(i,1);renderTrabajosLiq();calcularLiquidacion()}
+function actualizarTrabajoLiq(i,k,v){trabajosLiq[i][k]=['cantidad','precio'].includes(k)?Number(v)||0:v;calcularLiquidacion()}
+function renderTrabajosLiq(){
+ $('itemsLiquidacion').innerHTML=trabajosLiq.map((t,i)=>`<div class="card liq-item"><div class="toolbar"><b>TRABAJO ${i+1}</b><button type="button" class="danger" onclick="eliminarTrabajoLiq(${i})">Eliminar</button></div>
+ <div class="formgrid">
+ <div class="field full"><label>Descripción del trabajo *</label><input value="${esc(t.descripcion)}" oninput="actualizarTrabajoLiq(${i},'descripcion',this.value)" placeholder="Ej. Colocación de vinilo impreso"></div>
+ <div class="field"><label>Medidas</label><input value="${esc(t.medidas)}" oninput="actualizarTrabajoLiq(${i},'medidas',this.value)" placeholder="Ej. 3 x 2 m"></div>
+ <div class="field"><label>Cantidad</label><input type="number" min="0" step="0.01" value="${Number(t.cantidad)||0}" oninput="actualizarTrabajoLiq(${i},'cantidad',this.value)"></div>
+ <div class="field"><label>Materiales</label><input value="${esc(t.materiales)}" oninput="actualizarTrabajoLiq(${i},'materiales',this.value)"></div>
+ <div class="field"><label>Mano de obra</label><input value="${esc(t.manoObra)}" oninput="actualizarTrabajoLiq(${i},'manoObra',this.value)"></div>
+ <div class="field"><label>Precio total ($)</label><input type="number" min="0" step="0.01" value="${Number(t.precio)||0}" oninput="actualizarTrabajoLiq(${i},'precio',this.value)"></div>
+ <div class="field"><label>Fotos del trabajo</label><input type="file" accept="image/*" multiple onchange="cargarFotosLiq(${i},this)"><div class="note">${t.fotos.length} foto(s) cargada(s)</div><div class="liq-fotos">${t.fotos.map((src,j)=>`<span><img src="${src}" alt="Foto del trabajo"><button type="button" class="danger" onclick="quitarFotoLiq(${i},${j})">×</button></span>`).join('')}</div></div>
+ <div class="field full"><label>Observaciones</label><textarea rows="2" oninput="actualizarTrabajoLiq(${i},'observaciones',this.value)">${esc(t.observaciones)}</textarea></div>
+ </div></div>`).join('')
+}
+function cargarFotosLiq(i,input){
+ const files=Array.from(input.files||[]);files.forEach(file=>{if(!file.type.startsWith('image/'))return;const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,1200/Math.max(img.width,img.height)),canvas=document.createElement('canvas');canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);trabajosLiq[i].fotos.push(canvas.toDataURL('image/jpeg',.72));renderTrabajosLiq()};img.src=reader.result};reader.readAsDataURL(file)});input.value=''
+}
+function quitarFotoLiq(i,j){trabajosLiq[i].fotos.splice(j,1);renderTrabajosLiq()}
+function calcularLiquidacion(){
+ const f=$('liquidacionForm');if(!f)return;const subtotal=trabajosLiq.reduce((a,t)=>a+(Number(t.precio)||0),0),adelanto=Number(f.elements.adelanto?.value)||0;
+ $('resumenLiquidacion').innerHTML='<p>Trabajos cargados: <b>'+trabajosLiq.length+'</b></p><p>Total de trabajos: <b>'+money(subtotal)+'</b></p><p>Adelantos / pagos: <b>− '+money(adelanto)+'</b></p><p>Saldo pendiente: <b>'+money(Math.max(0,subtotal-adelanto))+'</b></p>';
+ $('totalLiquidacion').textContent='Total: '+money(subtotal)
+}
+$('liquidacionForm').onsubmit=e=>{
+ e.preventDefault();const f=new FormData(e.target);if(!trabajosLiq.length||trabajosLiq.some(t=>!t.descripcion.trim())){alert('Completá la descripción de cada trabajo o eliminá los renglones vacíos.');return}
+ const total=trabajosLiq.reduce((a,t)=>a+(Number(t.precio)||0),0);
+ db.liquidaciones.push({id:id(),cliente:f.get('cliente'),periodo:f.get('periodo'),obra:f.get('obra'),contacto:f.get('contacto'),referencia:f.get('referencia'),fecha:f.get('fecha'),adelanto:Number(f.get('adelanto'))||0,observaciones:f.get('observaciones'),trabajos:trabajosLiq.map(t=>({...t})),total,saldo:Math.max(0,total-(Number(f.get('adelanto'))||0))});
+ trabajosLiq=[];e.target.reset();cerrar('formLiquidacion');save()
+};
+function renderLiquidaciones(){
+ const rows=[...(db.liquidaciones||[])].reverse();
+ $('listaLiquidaciones').innerHTML=rows.map(l=>`<tr><td><b>${esc(l.periodo)}</b><br><span class="note">${esc(l.fecha)}</span></td><td>${esc(clienteNombre(l.cliente))}</td><td>${(l.trabajos||[]).length}</td><td><b>${money(l.total)}</b></td><td>${money(l.saldo)}</td><td><div class="actions"><button onclick="imprimirLiquidacion('${l.id}')">PDF</button><button class="danger" onclick="borrar('liquidaciones','${l.id}')">Eliminar</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Todavía no hay liquidaciones.</td></tr>'
+}
+function imprimirLiquidacion(ident){
+ const l=(db.liquidaciones||[]).find(x=>x.id===ident);if(!l)return;const c=db.clientes.find(x=>x.id===l.cliente)||{},w=window.open('','_blank');if(!w){alert('Permití las ventanas emergentes para generar el PDF.');return}
+ const trabajos=(l.trabajos||[]).map((t,i)=>`<section class="trabajo"><h3>TRABAJO ${i+1}</h3><div class="contenido"><div class="fotos">${(t.fotos||[]).map(src=>'<img src="'+src+'">').join('')||'<div class="sinfoto">FOTO DEL TRABAJO</div>'}</div><table><tr><th>Descripción</th><td>${esc(t.descripcion)}</td></tr><tr><th>Medidas</th><td>${esc(t.medidas||'—')}</td></tr><tr><th>Cantidad</th><td>${esc(t.cantidad)}</td></tr><tr><th>Materiales</th><td>${esc(t.materiales||'—')}</td></tr><tr><th>Mano de obra</th><td>${esc(t.manoObra||'—')}</td></tr><tr><th>Observaciones</th><td>${esc(t.observaciones||'—')}</td></tr></table><div class="precio">${money(t.precio)}</div></div></section>`).join('');
+ w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Liquidación '+esc(l.periodo)+'</title><style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font:11px Arial;color:#172033}h1{text-align:center;font-size:20px;margin:0 0 4px}.sub{text-align:center;margin:0 0 14px;color:#586176}.datos{width:100%;border-collapse:collapse;margin-bottom:12px}.datos td{border:1px solid #777;padding:7px}.lbl,th{background:#edf0f5;font-weight:bold}.trabajo{border:1px solid #555;margin:10px 0;break-inside:avoid}.trabajo h3{margin:0;background:#e9edf4;padding:7px;font-size:12px}.contenido{display:grid;grid-template-columns:34% 1fr 16%;gap:8px;padding:7px;align-items:stretch}.fotos{display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start}.fotos img{width:100%;max-height:145px;object-fit:contain;border:1px solid #ddd}.sinfoto{border:1px solid #bbb;color:#999;width:100%;min-height:100px;display:grid;place-items:center}.contenido table{border-collapse:collapse;width:100%}.contenido th,.contenido td{border:1px solid #aaa;padding:5px;text-align:left}.contenido th{width:34%}.precio{background:#fff200;font-weight:bold;text-align:right;padding:9px;align-self:center}.totales{width:55%;margin:15px 0 0 auto;border-collapse:collapse}.totales td{border:1px solid #777;padding:8px}.totales .total{background:#fff200;font-weight:bold;font-size:15px}.obs{border:1px solid #777;padding:8px;margin-top:14px;white-space:pre-wrap}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><h1>DETALLE DE TRABAJOS REALIZADOS</h1><div class="sub">Liquidación / Orden de trabajo</div><table class="datos"><tr><td class="lbl">CLIENTE</td><td>${esc(c.nombre||'')}</td><td class="lbl">FECHA</td><td>${esc(l.fecha)}</td></tr><tr><td class="lbl">OBRA / DIRECCIÓN</td><td colspan="3">${esc(l.obra||'')}</td></tr><tr><td class="lbl">CONTACTO / RESPONSABLE</td><td>${esc(l.contacto||c.telefono||'')}</td><td class="lbl">REFERENCIA</td><td>${esc(l.referencia||'')}</td></tr><tr><td class="lbl">PERÍODO</td><td colspan="3">${esc(l.periodo)}</td></tr></table>${trabajos}<table class="totales"><tr><td>Total trabajos</td><td style="text-align:right">${money(l.total)}</td></tr><tr><td>Adelantos / pagos recibidos</td><td style="text-align:right">− ${money(l.adelanto)}</td></tr><tr class="total"><td>SALDO A COBRAR</td><td style="text-align:right">${money(l.saldo)}</td></tr></table><div class="obs"><b>OBSERVACIONES GENERALES</b><br>${esc(l.observaciones||'')}</div><script>window.onload=()=>window.print()</script></body></html>');w.document.close()
+}
+
+function render(){ $('sClientes').textContent=db.clientes.length;$('sPresupuestos').textContent=db.presupuestos.length;$('sTrabajos').textContent=db.trabajos.filter(t=>t.estado!=='Finalizado').length;const saldo=db.gastos.reduce((a,g)=>a+(g.tipo==='Ingreso'?g.importe:-g.importe),0);$('sSaldo').textContent=money(saldo);renderClientes();renderPresupuestos();renderTrabajos();renderGastos();renderLiquidaciones();$('ultimos').innerHTML=[...db.presupuestos].reverse().slice(0,5).map(p=>`<p>${esc(clienteNombre(p.cliente))} — ${esc(p.descripcion)}: <b>${money(p.total)}</b></p>`).join('')||'<p class="empty">Tus presupuestos aparecerán acá.</p>';actualizarSelects()}
 function exportar(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='respaldo-gestion-grafica.json';a.click();URL.revokeObjectURL(a.href)}
-function importar(){const file=$('archivo').files[0];if(!file){alert('Elegí primero un archivo JSON.');return}const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.clientes)||!Array.isArray(d.presupuestos)||!Array.isArray(d.trabajos)||!Array.isArray(d.gastos))throw Error();if(confirm('Esto reemplazará los datos actuales. ¿Continuar?')){db=d;save();alert('Respaldo importado.')}}catch(e){alert('El archivo no parece ser un respaldo válido.')}};r.readAsText(file)}
+function importar(){const file=$('archivo').files[0];if(!file){alert('Elegí primero un archivo JSON.');return}const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.clientes)||!Array.isArray(d.presupuestos)||!Array.isArray(d.trabajos)||!Array.isArray(d.gastos))throw Error();if(!Array.isArray(d.liquidaciones))d.liquidaciones=[];if(confirm('Esto reemplazará los datos actuales. ¿Continuar?')){db=d;save();alert('Respaldo importado.')}}catch(e){alert('El archivo no parece ser un respaldo válido.')}};r.readAsText(file)}
 render();
 </script>
 </body>
