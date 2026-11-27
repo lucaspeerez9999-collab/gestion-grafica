@@ -337,7 +337,7 @@ $('liquidacionForm').onsubmit=e=>{
 };
 function renderLiquidaciones(){
  const rows=[...(db.liquidaciones||[])].reverse();
- $('listaLiquidaciones').innerHTML=rows.map(l=>`<tr><td><b>${esc(l.periodo)}</b><br><span class="note">${esc(l.fecha)}</span></td><td>${esc(clienteNombre(l.cliente))}</td><td>${(l.trabajos||[]).length}</td><td><b>${money(l.total)}</b></td><td>${money(l.saldo)}</td><td><div class="actions"><button onclick="editarLiquidacion('${l.id}')">Modificar</button><button onclick="imprimirLiquidacion('${l.id}')">PDF</button><button class="danger" onclick="borrar('liquidaciones','${l.id}')">Eliminar</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Todavía no hay liquidaciones.</td></tr>'
+ $('listaLiquidaciones').innerHTML=rows.map(l=>`<tr><td><b>${esc(l.periodo)}</b><br><span class="note">${esc(l.fecha)}</span></td><td>${esc(clienteNombre(l.cliente))}</td><td>${(l.trabajos||[]).length}</td><td><b>${money(l.total)}</b></td><td>${money(l.saldo)}</td><td><div class="actions"><button type="button" data-liquidacion-id="${esc(l.id)}" onclick="window.editarLiquidacion(this.getAttribute('data-liquidacion-id'))">Modificar</button><button onclick="imprimirLiquidacion('${l.id}')">PDF</button><button class="danger" onclick="borrar('liquidaciones','${l.id}')">Eliminar</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Todavía no hay liquidaciones.</td></tr>'
 }
 function imprimirLiquidacion(ident){
  const l=(db.liquidaciones||[]).find(x=>x.id===ident);if(!l)return;
