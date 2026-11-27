@@ -119,7 +119,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px
 <div class="field full"><label>Observaciones / condiciones</label><textarea name="observaciones" rows="2"></textarea></div>
 </div>
 <div class="card"><div class="stat-label">Resumen del presupuesto</div><div id="resumenCalculo"></div><div class="total" id="calculo">$0</div><div class="note">El IVA se agrega únicamente si seleccionás “Agregar IVA 21%”.</div></div>
-<div class="actions"><button class="primary">Guardar presupuesto</button><button type="button" onclick="cerrar('formPresupuesto')">Cancelar</button></div>
+<div class="actions"><button class="primary">Guardar presupuesto</button><button type="button" onclick="cancelarPresupuesto()">Cancelar</button></div>
 </form></div>
 <div class="card"><div class="tablewrap"><table><thead><tr><th>N.º / fecha</th><th>Cliente y trabajo</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody id="listaPresupuestos"></tbody></table></div></div>
 </section>
@@ -190,7 +190,10 @@ function abrir(id){$(id).classList.remove('hidden')}
 $('nav').addEventListener('click',e=>{const b=e.target.closest('button[data-page]');if(!b)return;document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));$(b.dataset.page).classList.remove('hidden');document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x===b));render()});
 function formularioCliente(){ $('clienteForm').reset();abrir('formCliente')}
 let presupuestoItems=[];
-function formularioPresupuesto(){if(!db.clientes.length){alert('Primero registrá un cliente.');return} $('presupuestoForm').reset();$('presupuestoForm').elements.fecha.value=hoy();actualizarSelects();presupuestoItems=[];agregarItem();abrir('formPresupuesto');calcular()}
+let presupuestoEditandoId=null;
+function formularioPresupuesto(){if(!db.clientes.length){alert('Primero registrá un cliente.');return}presupuestoEditandoId=null;$('presupuestoForm').reset();$('presupuestoForm').elements.fecha.value=hoy();$('formPresupuesto').querySelector('h3').innerHTML='Nuevo presupuesto <span class="badge">Cotización</span>';$('presupuestoForm').querySelector('button.primary').textContent='Guardar presupuesto';actualizarSelects();presupuestoItems=[];agregarItem();abrir('formPresupuesto');calcular()}
+function editarPresupuesto(ident){const p=db.presupuestos.find(x=>x.id===ident);if(!p)return;presupuestoEditandoId=ident;actualizarSelects();const form=$('presupuestoForm');form.reset();for(const k of ['cliente','fecha','descripcion','medidas','ganancia','descuento','sena','ivaActivo','estado','observaciones'])if(form.elements[k])form.elements[k].value=p[k]??(k==='ganancia'?30:k==='ivaActivo'?'no':'');presupuestoItems=Array.isArray(p.items)&&p.items.length?p.items.map(it=>({...it})):[{descripcion:p.descripcion||'',cantidad:1,unidad:'global',precio:Number(p.total)||0}];renderItems();calcular();$('formPresupuesto').querySelector('h3').innerHTML='Modificar presupuesto #'+esc(p.numero)+' <span class="badge">Edición</span>';$('presupuestoForm').querySelector('button.primary').textContent='Guardar cambios';abrir('formPresupuesto');$('formPresupuesto').scrollIntoView({behavior:'smooth',block:'start'})}
+function cancelarPresupuesto(){presupuestoEditandoId=null;presupuestoItems=[];$('presupuestoForm').reset();cerrar('formPresupuesto')}
 function formularioTrabajo(){$('trabajoForm').reset();$('trabajoForm').elements.fecha.value=hoy();actualizarSelects();abrir('formTrabajo')}
 function formularioGasto(){$('gastoForm').reset();$('gastoForm').elements.fecha.value=hoy();abrir('formGasto')}
 function actualizarSelects(){for(const name of ['pCliente','tCliente','lCliente']){$(name).innerHTML='<option value="">Sin asignar</option>'+db.clientes.map(c=>`<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('')}}
@@ -225,15 +228,16 @@ $('presupuestoForm').onsubmit=e=>{
  const subtotal=items.reduce((a,it)=>a+it.total,0);
  const base=Math.max(0,subtotal*(1+n('ganancia')/100)-n('descuento'));
  const ivaActivo=f.get('ivaActivo')==='si',iva=ivaActivo?base*.21:0,total=base+iva;
- db.presupuestos.push({id:id(),numero:String(Date.now()).slice(-6),fecha:f.get('fecha'),cliente:f.get('cliente'),descripcion:f.get('descripcion'),medidas:f.get('medidas'),items,subtotal,materiales:0,mano:0,instalacion:0,otros:0,ganancia:n('ganancia'),descuento:n('descuento'),ivaActivo,iva,sena:n('sena'),total,estado:f.get('estado'),observaciones:f.get('observaciones')});
- e.target.reset();presupuestoItems=[];cerrar('formPresupuesto');save()
+ const datos={fecha:f.get('fecha'),cliente:f.get('cliente'),descripcion:f.get('descripcion'),medidas:f.get('medidas'),items,subtotal,materiales:0,mano:0,instalacion:0,otros:0,ganancia:n('ganancia'),descuento:n('descuento'),ivaActivo,iva,sena:n('sena'),total,estado:f.get('estado'),observaciones:f.get('observaciones')};
+ if(presupuestoEditandoId){const existente=db.presupuestos.find(x=>x.id===presupuestoEditandoId);if(!existente)return;Object.assign(existente,datos)}else{db.presupuestos.push({id:id(),numero:String(Date.now()).slice(-6),...datos})}
+ presupuestoEditandoId=null;e.target.reset();presupuestoItems=[];cerrar('formPresupuesto');save()
 };
 $('trabajoForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.trabajos.push({id:id(),nombre:f.get('nombre'),cliente:f.get('cliente'),fecha:f.get('fecha'),estado:f.get('estado'),notas:f.get('notas')});e.target.reset();cerrar('formTrabajo');save()};
 $('gastoForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.gastos.push({id:id(),tipo:f.get('tipo'),fecha:f.get('fecha'),concepto:f.get('concepto'),importe:Number(f.get('importe'))});e.target.reset();cerrar('formGasto');save()};
 function borrar(tipo,ident){if(confirm('¿Eliminar este registro?')){db[tipo]=db[tipo].filter(x=>x.id!==ident);save()}}
 function clienteNombre(ident){return db.clientes.find(c=>c.id===ident)?.nombre||'Sin asignar'}
 function renderClientes(){const q=($('buscarCliente')?.value||'').toLowerCase();$('listaClientes').innerHTML=db.clientes.filter(c=>(c.nombre+' '+c.telefono+' '+c.cuit).toLowerCase().includes(q)).map(c=>`<tr><td><b>${esc(c.nombre)}</b><br><span class="note">${esc(c.email)}</span></td><td>${esc(c.telefono)}</td><td>${esc(c.cuit)}</td><td><button class="danger" onclick="borrar('clientes','${c.id}')">Eliminar</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Todavía no hay clientes.</td></tr>'}
-function renderPresupuestos(){$('listaPresupuestos').innerHTML=[...db.presupuestos].reverse().map(p=>`<tr><td>#${esc(p.numero)}<br>${esc(p.fecha)}</td><td><b>${esc(clienteNombre(p.cliente))}</b><br>${esc(p.descripcion)}<br><span class="note">${esc(p.medidas)}</span></td><td><b>${money(p.total)}</b><br><span class="note">Seña: ${money(p.sena)}</span></td><td><span class="badge">${esc(p.estado)}</span></td><td><div class="actions"><button onclick="imprimirPresupuesto('${p.id}')">Imprimir</button><button class="danger" onclick="borrar('presupuestos','${p.id}')">Eliminar</button></div></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Todavía no hay presupuestos.</td></tr>'}
+function renderPresupuestos(){$('listaPresupuestos').innerHTML=[...db.presupuestos].reverse().map(p=>`<tr><td>#${esc(p.numero)}<br>${esc(p.fecha)}</td><td><b>${esc(clienteNombre(p.cliente))}</b><br>${esc(p.descripcion)}<br><span class="note">${esc(p.medidas)}</span></td><td><b>${money(p.total)}</b><br><span class="note">Seña: ${money(p.sena)}</span></td><td><span class="badge">${esc(p.estado)}</span></td><td><div class="actions"><button onclick="imprimirPresupuesto('${p.id}')">Imprimir</button><button onclick="editarPresupuesto('${p.id}')">Modificar</button><button class="danger" onclick="borrar('presupuestos','${p.id}')">Eliminar</button></div></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Todavía no hay presupuestos.</td></tr>'}
 function imprimirPresupuesto(ident){
  const p=db.presupuestos.find(x=>x.id===ident);if(!p)return;
  const c=db.clientes.find(x=>x.id===p.cliente)||{};
