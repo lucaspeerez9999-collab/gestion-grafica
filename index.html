@@ -318,9 +318,13 @@ function imprimirLiquidacion(ident){
 function render(){ $('sClientes').textContent=db.clientes.length;$('sPresupuestos').textContent=db.presupuestos.length;$('sTrabajos').textContent=db.trabajos.filter(t=>t.estado!=='Finalizado').length;const saldo=db.gastos.reduce((a,g)=>a+(g.tipo==='Ingreso'?g.importe:-g.importe),0);$('sSaldo').textContent=money(saldo);renderClientes();renderPresupuestos();renderTrabajos();renderGastos();renderLiquidaciones();$('ultimos').innerHTML=[...db.presupuestos].reverse().slice(0,5).map(p=>`<p>${esc(clienteNombre(p.cliente))} — ${esc(p.descripcion)}: <b>${money(p.total)}</b></p>`).join('')||'<p class="empty">Tus presupuestos aparecerán acá.</p>';actualizarSelects()}
 function exportar(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='respaldo-gestion-grafica.json';a.click();URL.revokeObjectURL(a.href)}
 function importar(){const file=$('archivo').files[0];if(!file){alert('Elegí primero un archivo JSON.');return}const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.clientes)||!Array.isArray(d.presupuestos)||!Array.isArray(d.trabajos)||!Array.isArray(d.gastos))throw Error();if(!Array.isArray(d.liquidaciones))d.liquidaciones=[];if(confirm('Esto reemplazará los datos actuales. ¿Continuar?')){db=d;save();alert('Respaldo importado.')}}catch(e){alert('El archivo no parece ser un respaldo válido.')}};r.readAsText(file)}
-render();
-// Compatibilidad con Safari/iOS: publicar explícitamente las acciones usadas
-// por los atributos onclick/onchange del HTML.
+// Normalizar datos antiguos o incompletos para evitar que un registro previo
+// interrumpa la inicialización de toda la aplicación.
+for (const k of ['clientes','presupuestos','trabajos','gastos','liquidaciones']) {
+  if (!Array.isArray(db[k])) db[k] = [];
+}
+// Publicar acciones antes del primer render: si el render inicial falla,
+// los botones igualmente quedan conectados y se puede seguir diagnosticando.
 Object.assign(window,{
   formularioCliente, formularioPresupuesto, formularioTrabajo, formularioGasto,
   formularioLiquidacion, abrir, cerrar, borrar, imprimirPresupuesto,
@@ -328,6 +332,15 @@ Object.assign(window,{
   actualizarTrabajoLiq, eliminarTrabajoLiq, cargarFotosLiq, quitarFotoLiq,
   cambiarEstadoTrabajo, renderClientes, exportar, importar
 });
+try { render(); }
+catch (error) {
+  console.error('Error al iniciar Gestión Gráfica:', error);
+  const aviso=document.createElement('div');
+  aviso.className='card';
+  aviso.style.cssText='margin:16px;padding:16px;color:#a11;background:#fff';
+  aviso.textContent='La aplicación tuvo un error al cargar los datos. Entrá en Respaldo para exportar tus datos y contactá soporte.';
+  document.querySelector('main')?.prepend(aviso);
+}
 </script>
 </body>
 </html>
